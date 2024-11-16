@@ -25,12 +25,14 @@ class ClutImageCard(QFrame):
         2: 图片作为背景，内容覆盖在上面
         3: 图片在右侧，标题和内容在左侧
     """
-    def __init__(self, title="", msg="", image_url="", image_mode=0, image_clickConnect=None, parent=None):
+    def __init__(self, title="", msg="", image_url="", image_mode=0, image_clickConnect=None, image_size=None, image_align="center", parent=None):
         super().__init__(parent)
         self.setObjectName("clutImageCard")
         self.image_url = image_url
         self.image_mode = image_mode
         self.image_clickConnect = image_clickConnect
+        self.image_size = image_size
+        self.image_align = image_align
         
         # 设置最大宽度
         self.setMaximumWidth(800)  # 限制最大宽度
@@ -132,16 +134,23 @@ class ClutImageCard(QFrame):
         layout = QHBoxLayout(self.container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.setAlignment(Qt.AlignCenter)  # 居中对齐
         
         # 图片区域
         image_label = None
         if self.image_url:
             image_label = self._create_image_label()
+            # 根据 image_align 设置对齐方式
+            if self.image_mode in (1, 3):  # 图片在左侧或右侧时
+                if self.image_align == "center":
+                    image_label.setAlignment(Qt.AlignCenter)
+                elif self.image_align == "left":
+                    image_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+                elif self.image_align == "right":
+                    image_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         
         # 内容区域
         content = QWidget()
-        content.setFixedWidth(500)  # 限制内容区域宽度
+        content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(20, 20, 20, 20)
         content_layout.setSpacing(12)
@@ -225,13 +234,19 @@ class ClutImageCard(QFrame):
                 image_label.setAlignment(Qt.AlignCenter)
                 return image_label
             
-            # 设置固定尺寸
-            if self.image_mode == 0:  # 图片在上方
-                target_size = QSize(400, 200)
-            elif self.image_mode in (1, 3):  # 图片在左侧或右侧
-                target_size = QSize(200, 160)
-            else:  # 图片作为背景
-                target_size = QSize(400, 240)
+            # 获取窗口大小
+            window_size = self.window().size()
+            
+            # 根据模式和窗口大小计算目标尺寸
+            if self.image_size:  # 如果用户指定了尺寸
+                target_size = self.image_size
+            else:
+                if self.image_mode == 0:  # 图片在上方
+                    target_size = QSize(int(window_size.width() * 0.5), int(window_size.height() * 0.3))
+                elif self.image_mode in (1, 3):  # 图片在左侧或右侧
+                    target_size = QSize(int(window_size.width() * 0.25), int(window_size.height() * 0.2))
+                else:  # 图片作为背景
+                    target_size = QSize(int(window_size.width() * 0.5), int(window_size.height() * 0.4))
             
             image_label.setFixedSize(target_size)
             
@@ -243,7 +258,6 @@ class ClutImageCard(QFrame):
             )
             
             image_label.setPixmap(scaled_pixmap)
-            image_label.setAlignment(Qt.AlignCenter)
             
             image_label.setStyleSheet("""
                 QLabel#imageLabel {

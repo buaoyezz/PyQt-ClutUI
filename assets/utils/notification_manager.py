@@ -56,6 +56,9 @@ class NotificationManager(QObject):
 
     def _process_next_notification(self):
         """处理下一个待显示的通知"""
+        # 先清理已关闭的通知
+        self.notifications = [n for n in self.notifications if n.isVisible()]
+        
         if self.pending_shows and len(self.notifications) < self.MAX_NOTIFICATIONS:
             notification_data = self.pending_shows.pop(0)
             self._create_notification(**notification_data)
@@ -65,9 +68,6 @@ class NotificationManager(QObject):
 
     def _create_notification(self, title, msg, icon, duration):
         """创建新的通知"""
-        # 清理已关闭的通知
-        self.notifications = [n for n in self.notifications if n.isVisible()]
-        
         # 检查是否达到最大显示数量
         if len(self.notifications) >= self.MAX_NOTIFICATIONS:
             return

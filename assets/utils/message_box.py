@@ -1,16 +1,22 @@
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, 
                            QPushButton, QLabel, QGraphicsDropShadowEffect,
-                           QWidget, QApplication)
+                           QWidget, QApplication, QScrollArea)
 from PyQt5.QtCore import Qt, QPropertyAnimation, QPoint, QParallelAnimationGroup, QEasingCurve, pyqtProperty
 from PyQt5.QtGui import QColor, QFont, QTransform
 
 class ClutMessageBox(QDialog):
     def __init__(self, parent=None, title="提示", text="", buttons=["确定"]):
         super().__init__(parent)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.setWindowFlags(
+            Qt.Dialog | 
+            Qt.WindowStaysOnTopHint | 
+            Qt.FramelessWindowHint
+        )
         self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setModal(True)
         
         # 初始化结果
+        self.dragPos = None
         self.result = None
         
         # 创建主布局
@@ -18,15 +24,52 @@ class ClutMessageBox(QDialog):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
+        # 创建滚动区域
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QScrollArea.NoFrame)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                background: transparent;
+                border: none;
+            }
+            QScrollBar:vertical {
+                background: rgba(255, 255, 255, 0.1);
+                width: 8px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: rgba(255, 255, 255, 0.3);
+                min-height: 20px;
+                border-radius: 4px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            QScrollBar:horizontal {
+                background: rgba(255, 255, 255, 0.1);
+                height: 8px;
+                margin: 0px;
+            }
+            QScrollBar::handle:horizontal {
+                background: rgba(255, 255, 255, 0.3);
+                min-width: 20px;
+                border-radius: 4px;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                width: 0px;
+            }
+        """)
+        
         # 创建容器
         self.container = QWidget()
         self.container.setObjectName("container")
-        self.container.setMinimumSize(400, 200)  # 设置最小尺寸而不是固定尺寸
         self.container.setStyleSheet("""
             QWidget#container {
                 background: #2d2d2d;
                 border-radius: 8px;
-                border: 1px solid rgba(255, 255, 255, 0.1);
             }
         """)
         
@@ -70,14 +113,19 @@ class ClutMessageBox(QDialog):
         message_container = QHBoxLayout()
         message_container.setContentsMargins(15, 0, 0, 0)
         
-        # 内容文字
-        text_label = QLabel(text)
+        # 修改文本标签以支持HTML
+        text_label = QLabel()
         text_label.setWordWrap(True)
+        text_label.setOpenExternalLinks(True)  # 支持点击链接
+        text_label.setTextFormat(Qt.RichText)  # 设置为富文本格式
+        text_label.setText(text)
         text_label.setStyleSheet("""
             QLabel {
                 color: rgba(255, 255, 255, 0.9);
                 font-size: 14px;
                 font-family: 'Microsoft YaHei';
+                padding: 10px;
+                background: transparent;
             }
         """)
         
@@ -147,8 +195,11 @@ class ClutMessageBox(QDialog):
         layout.addStretch()
         layout.addLayout(button_container)
         
-        # 添加容器到主布局
-        main_layout.addWidget(self.container)
+        # 设置滚动区域的内容
+        scroll_area.setWidget(self.container)
+        
+        # 添加滚动区域到主布局
+        main_layout.addWidget(scroll_area)
         
         # 添加阴影效果
         shadow = QGraphicsDropShadowEffect(self.container)
@@ -157,8 +208,21 @@ class ClutMessageBox(QDialog):
         shadow.setOffset(0, 4)
         self.container.setGraphicsEffect(shadow)
         
-        # 调整大小以适应内容
+        # 自动调整大小
         self.adjustSize()
+        screen = QApplication.primaryScreen().geometry()
+        max_height = int(screen.height() * 0.8)  # 最大高度为屏幕高度的80%
+        max_width = int(screen.width() * 0.8)   # 最大宽度为屏幕宽度的80%
+        
+        # 设置最小和最大尺寸
+        self.setMinimumSize(400, 200)
+        self.setMaximumSize(max_width, max_height)
+        
+        # 根据内容自动调整大小，但不超过最大尺寸
+        content_size = self.container.sizeHint()
+        final_width = min(max(250, content_size.width() + 50), max_width)
+        final_height = min(max(150, content_size.height() + 50), max_height)
+        self.resize(final_width, final_height)
 
     def setup_animations(self):
         """设置动画"""
@@ -224,13 +288,21 @@ class ClutMessageBox(QDialog):
         self.fade_anim.start()
 
     @staticmethod
-    def show_message(parent=None, title="提示", text="", buttons=["确定"]):
+    def show_message(parent=None, title="提示", text="", buttons=None):
+        if buttons is None:
+            buttons = ["确定"]
         dialog = ClutMessageBox(parent, title, text, buttons)
-        dialog.setup_animations()  # 设置动画
+        if parent:
+            # 调整位置到父窗口中心
+            center = parent.geometry().center()
+            dialog.move(center.x() - dialog.width() // 2,
+                       center.y() - dialog.height() // 2)
+        
+        dialog.setup_animations()
         dialog.show()
-        dialog.show_with_animation()  # 显示动画
-        dialog.exec_()
-        return dialog.result
+        dialog.show_with_animation()
+        dialog.exec_()  # 执行对话框
+        return dialog.result  # 返回结果字符串
 
     # 添加缩放属性支持
     def setScale(self, scale):
