@@ -1,7 +1,7 @@
 # PyQt-ClutUI
 
 <p align="center">
-    <img src="assets/icons/logo.png" alt="ClutUI Logo" width="500"/>
+    <img src="src/clutui/assets/icons/logo.png" alt="ClutUI Logo" width="500"/>
 </p>
 
 <p align="center">
