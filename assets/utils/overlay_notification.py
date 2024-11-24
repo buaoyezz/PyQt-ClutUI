@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, 
-                            QDesktopWidget, QPushButton, QApplication)
+                            QDesktopWidget, QPushButton, QApplication, QSizePolicy)
 from PyQt5.QtCore import (Qt, QTimer, QPoint, QPropertyAnimation, 
                          QEasingCurve, QSequentialAnimationGroup, pyqtSignal)
 from PyQt5.QtGui import QColor, QFont, QFontDatabase
@@ -14,7 +14,8 @@ class OverlayNotification(QWidget):
             Qt.WindowStaysOnTopHint |
             Qt.Tool |
             Qt.NoDropShadowWindowHint |
-            Qt.X11BypassWindowManagerHint
+            Qt.X11BypassWindowManagerHint |
+            Qt.SubWindow
         )
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
@@ -45,6 +46,11 @@ class OverlayNotification(QWidget):
         self.setFixedHeight(96)  # 根据实际需要调整
         self.setMinimumWidth(300)
         self.setMaximumWidth(400)  # 添加最大宽度限制
+        self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)  # 新增：设置大小策略
+        
+        # 添加默认的链接跳转消息
+        self.default_linkout_title = "正在跳转外部链接"
+        self.default_linkout_message = "即将在浏览器中打开链接"
 
     def show_message(self, title="", message="", icon=None, duration=None):
         """显示消息"""
@@ -80,12 +86,19 @@ class OverlayNotification(QWidget):
         if duration is not None:
             self.timer.start(duration)
         elif self.duration > 0:
-            self.timer.start(self.duration)
+            self.timer.start(self.duration)            
+    def linkout(self, title=None, message=None, duration=2000):
+        """显示链接跳转通知"""
+        self.show_message(
+            title=title or self.default_linkout_title,
+            message=message or self.default_linkout_message,
+            duration=duration
+        )
 
     def _setup_ui(self):
         """设置UI"""
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(10, 10, 10, 10)
+        self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(3)  # 减小标题和消息之间的间距
         
         # 标题标签
@@ -143,6 +156,9 @@ class OverlayNotification(QWidget):
         
         # 调整容器布局的边距
         self.container_layout.setContentsMargins(15, 10, 15, 10)
+        
+        # 确保调整大小以适应内容
+        self.adjustSize()
         
         # 设置消息标签的最大宽度
         self.message_label.setMaximumWidth(350)

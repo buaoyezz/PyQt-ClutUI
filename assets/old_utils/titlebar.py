@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QFrame, QHBoxLayout, QPushButton, QLabel, QApplication
+from PyQt5.QtWidgets import QFrame, QHBoxLayout, QPushButton, QLabel, QDesktopWidget
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QRect, QPoint
 
@@ -33,11 +33,11 @@ class Clut_Bar(QFrame):
         self.animation.setDuration(100)  # 增加动画持续时间以提高流畅性
         
         # 获取屏幕尺寸
-        self.screen = QApplication.primaryScreen().availableGeometry()
+        self.screen = QDesktopWidget().availableGeometry()
 
         layout = QHBoxLayout()
         layout.setContentsMargins(10, 0, 0, 0)
-        self.title = QLabel(" ClutUI | Ver1.0.1.6500")
+        self.title = QLabel("ClutUI | Ver0.0.1 | 感谢体验 | 测试框架 非软件")
         self.title.setStyleSheet("font-size: 14px; font-weight: bold;")
         layout.addWidget(self.title)
 
@@ -60,14 +60,6 @@ class Clut_Bar(QFrame):
         self.min_button.clicked.connect(self.window().showMinimized)
         self.max_button.clicked.connect(self.toggle_maximize_animation)
         self.close_button.clicked.connect(self.window().close)
-        
-        # 添加新的属性来跟踪拖动状态
-        self.dragging = False
-        self.drag_start_position = None
-        
-        # 修改动画持续时间和曲线
-        self.animation.setDuration(150)  # 稍微增加动画时间使其更流畅
-        self.animation.setEasingCurve(QEasingCurve.InOutQuad)  # 使用更自然的缓动曲线
         
     def toggle_maximize_animation(self):
         """切换最大化状态的动画"""
@@ -98,61 +90,27 @@ class Clut_Bar(QFrame):
             
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self.dragging = True
-            self.drag_start_position = event.globalPos()
-            self.window_start_position = self.window().pos()
+            self.start_pos = event.globalPos() - self.window().frameGeometry().topLeft()
             event.accept()
 
     def mouseMoveEvent(self, event):
-        if not (event.buttons() & Qt.LeftButton and self.dragging):
-            return
-            
-        # 计算移动距离
-        delta = event.globalPos() - self.drag_start_position
-        
-        if self._is_maximized:
-            # 如果窗口最大化，先还原窗口
-            self._restore_window_at_cursor(event.globalPos())
-        else:
-            # 限制窗口在屏幕范围内
-            new_pos = self.window_start_position + delta
-            new_pos.setX(max(0, min(new_pos.x(), 
-                self.screen.width() - self.window().width())))
-            new_pos.setY(max(0, min(new_pos.y(), 
-                self.screen.height() - self.window().height())))
-            self.window().move(new_pos)
-        
-        event.accept()
+        if event.buttons() == Qt.LeftButton and self.start_pos:
+            if not self._is_maximized:
+                self.window().move(event.globalPos() - self.start_pos)
+            else:
+                self._restore_and_move(event)
+            event.accept()
+
+    def _restore_and_move(self, event):
+        """在最大化状态下还原并移动窗口"""
+        self.toggle_maximize_animation()
+        ratio = event.globalPos().x() / self.screen.width()
+        new_x = int(self._normal_geometry.width() * ratio)
+        self.start_pos = QPoint(new_x, event.pos().y())
 
     def mouseReleaseEvent(self, event):
-        self.dragging = False
-        self.drag_start_position = None
-        self.window_start_position = None
-        event.accept()
-
-    def _restore_window_at_cursor(self, global_pos):
-        """在鼠标位置还原窗口"""
-        if not self._normal_geometry:
-            return
-            
-        # 计算鼠标在窗口中的相对位置比例
-        ratio = (global_pos.x() - self.screen.left()) / self.screen.width()
-        target_width = self._normal_geometry.width()
+        self.start_pos = None
         
-        # 计算新窗口位置，使鼠标保持在相对位置
-        new_x = global_pos.x() - (target_width * ratio)
-        new_y = global_pos.y() - 20  # 标题栏高度的一半左右
-        
-        # 设置新的窗口几何属性
-        self._normal_geometry.moveTopLeft(QPoint(int(new_x), int(new_y)))
-        self.window().setGeometry(self._normal_geometry)
-        self._is_maximized = False
-        self.max_button.setIcon(QIcon("assets/icons/max3.png"))
-        
-        # 更新拖动起始位置
-        self.drag_start_position = global_pos
-        self.window_start_position = self.window().pos()
-
     def mouseDoubleClickEvent(self, event):
         """双击标题栏切换最大化状态"""
         if event.button() == Qt.LeftButton:
