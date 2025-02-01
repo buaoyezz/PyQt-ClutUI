@@ -1,4 +1,5 @@
 # PyQt-ClutUI
+-已停更，请使用ClutUI-Nextgen
 
 <p align="center">
     <img src="src/clutui/assets/icons/logo.png" alt="ClutUI Logo" width="500"/>
